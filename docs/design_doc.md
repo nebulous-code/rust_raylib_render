@@ -327,11 +327,7 @@ Implementation:
 * Add optional audio track muxing
 * Build a library API (`Renderer` trait + `Encoder` trait)
 
-```
-
-If you want, I can also generate a **starter Rust repo skeleton** (folders + stub modules + TODOs) matching this plan, so your Codex agent can start filling in real code immediately.
-::contentReference[oaicite:4]{index=4}
-```
+## Sources
 
 [1]: https://docs.rs/raylib/latest/raylib/ffi/fn.LoadImageFromTexture.html?utm_source=chatgpt.com "LoadImageFromTexture in raylib::ffi - Rust"
 [2]: https://www.raylib.com/examples/textures/loader.html?name=textures_to_image&utm_source=chatgpt.com "raylib [textures] example - texture to image"

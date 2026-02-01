@@ -1,6 +1,6 @@
 # Raylib → FFmpeg video renderer (Rust)
 
-Small Rust prototype that renders a bouncing ball with raylib, captures each frame as raw RGBA, and streams those frames into an `ffmpeg` subprocess to produce an `output.mp4`.
+Small Rust prototype that renders a bouncing ball with raylib, captures each frame as raw RGBA, and streams those frames into an `ffmpeg` subprocess to produce an `.mp4` in the `output/` folder.
 
 ## What it does
 
@@ -23,6 +23,7 @@ Small Rust prototype that renders a bouncing ball with raylib, captures each fra
 
 - `raylib` — Rust bindings to raylib (rendering + texture capture)
 - `anyhow` — ergonomic error handling
+- `chrono` — timestamped output filenames
 
 See `Cargo.toml` for exact versions.
 
@@ -57,7 +58,7 @@ ffmpeg -y -loglevel error \
   -f rawvideo -pix_fmt rgba -s 800x600 -r 30 -i - \
   -vf vflip \
   -c:v libx264 -pix_fmt yuv420p -crf 18 \
-  output.mp4
+  output/render_YYYYMMDD_HHMMSS.mp4
 ```
 
 ## Running
@@ -66,7 +67,7 @@ ffmpeg -y -loglevel error \
 cargo run
 ```
 
-The output file is written to `output.mp4` in the project root.
+The output file is written to `output/render_YYYYMMDD_HHMMSS.mp4` (UTC timestamp).
 
 ## Project layout
 

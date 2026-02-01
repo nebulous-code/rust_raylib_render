@@ -15,6 +15,10 @@ pub struct FfmpegEncoder {
 
 impl FfmpegEncoder {
     pub fn start(config: &Config) -> Result<Self> {
+        std::fs::create_dir_all(&config.output_dir)
+            .context("failed to create output directory")?;
+        let output_path = config.output_path();
+
         let mut cmd = Command::new("ffmpeg");
         cmd.arg("-y")
             .arg("-loglevel")
@@ -37,7 +41,7 @@ impl FfmpegEncoder {
             .arg("yuv420p")
             .arg("-crf")
             .arg("18")
-            .arg(&config.output_path)
+            .arg(&output_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::inherit());

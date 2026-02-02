@@ -1,3 +1,3 @@
 pub mod ffmpeg;
 
-pub use ffmpeg::FfmpegEncoder;
+pub use ffmpeg::{mux_audio, FfmpegEncoder};

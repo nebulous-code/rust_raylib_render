@@ -4,17 +4,25 @@ use anyhow::{bail, Context, Result};
 use raylib::consts::PixelFormat;
 use raylib::prelude::*;
 
+use crate::audio::AudioEngine;
 use crate::config::Config;
 use crate::renderer::bouncing_ball::BouncingBall;
+
+pub struct RenderedFrame {
+    pub rgba: Vec<u8>,
+    pub bounced: bool,
+}
 
 pub struct BouncingBallRenderer {
     rl: RaylibHandle,
     thread: RaylibThread,
     render_texture: RenderTexture2D,
     state: BouncingBall,
+    audio: Option<AudioEngine>,
     width: u32,
     height: u32,
     fps: u32,
+    preview_realtime: bool,
     bg: Color,
 }
 
@@ -26,18 +34,26 @@ impl BouncingBallRenderer {
             .build();
 
         let mut rl = rl;
+        if config.preview_realtime && config.fps > 0 {
+            rl.set_target_fps(config.fps);
+        }
+
         let render_texture = rl
             .load_render_texture(&thread, config.width, config.height)
             .context("failed to create render texture")?;
+
+        let audio = AudioEngine::new(config)?;
 
         Ok(Self {
             rl,
             thread,
             render_texture,
             state: BouncingBall::new(config.width as f32, config.height as f32),
+            audio,
             width: config.width,
             height: config.height,
             fps: config.fps,
+            preview_realtime: config.preview_realtime,
             bg: Color::new(0x18, 0x18, 0x18, 255),
         })
     }
@@ -46,9 +62,9 @@ impl BouncingBallRenderer {
         self.rl.window_should_close()
     }
 
-    pub fn render_frame(&mut self, frame_index: u32, total_frames: u32) -> Result<Vec<u8>> {
+    pub fn render_frame(&mut self, frame_index: u32, total_frames: u32) -> Result<RenderedFrame> {
         let dt = if self.fps > 0 { 1.0 / self.fps as f32 } else { 0.0 };
-        self.state.step(dt);
+        let bounce = self.state.step(dt);
 
         let t_norm = if total_frames > 0 {
             frame_index as f32 / total_frames as f32
@@ -65,11 +81,34 @@ impl BouncingBallRenderer {
             d.draw_circle_v(self.state.position, self.state.radius, color);
         }
 
-        capture_rgba(&self.render_texture, self.width, self.height)
+        if self.preview_realtime {
+            let mut d = self.rl.begin_drawing(&self.thread);
+            d.clear_background(self.bg);
+            let color = self.state.color_at(t_norm);
+            d.draw_circle_v(self.state.position, self.state.radius, color);
+        }
+
+        if let Some(audio) = self.audio.as_mut() {
+            audio.update();
+            if bounce.bounced {
+                audio.play_bounce();
+            }
+        }
+
+        let rgba = capture_rgba(&self.render_texture, self.width, self.height)?;
+
+        Ok(RenderedFrame {
+            rgba,
+            bounced: bounce.bounced,
+        })
     }
 }
 
-fn capture_rgba(render_texture: &RenderTexture2D, expected_w: u32, expected_h: u32) -> Result<Vec<u8>> {
+fn capture_rgba(
+    render_texture: &RenderTexture2D,
+    expected_w: u32,
+    expected_h: u32,
+) -> Result<Vec<u8>> {
     let mut image = unsafe { raylib::ffi::LoadImageFromTexture(*render_texture.texture().as_ref()) };
 
     let result = (|| {

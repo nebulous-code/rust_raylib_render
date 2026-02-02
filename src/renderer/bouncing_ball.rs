@@ -1,5 +1,11 @@
 use raylib::prelude::*;
 
+pub struct BounceEvent {
+    pub bounced: bool,
+    pub x: bool,
+    pub y: bool,
+}
+
 pub struct BouncingBall {
     pub position: Vector2,
     pub velocity: Vector2,
@@ -22,25 +28,41 @@ impl BouncingBall {
         }
     }
 
-    pub fn step(&mut self, dt: f32) {
+    pub fn step(&mut self, dt: f32) -> BounceEvent {
+        let mut ev = BounceEvent {
+            bounced: false,
+            x: false,
+            y: false,
+        };
+
         self.position.x += self.velocity.x * dt;
         self.position.y += self.velocity.y * dt;
 
         if self.position.x - self.radius < 0.0 {
             self.position.x = self.radius;
             self.velocity.x = self.velocity.x.abs();
+            ev.bounced = true;
+            ev.x = true;
         } else if self.position.x + self.radius > self.width {
             self.position.x = self.width - self.radius;
             self.velocity.x = -self.velocity.x.abs();
+            ev.bounced = true;
+            ev.x = true;
         }
 
         if self.position.y - self.radius < 0.0 {
             self.position.y = self.radius;
             self.velocity.y = self.velocity.y.abs();
+            ev.bounced = true;
+            ev.y = true;
         } else if self.position.y + self.radius > self.height {
             self.position.y = self.height - self.radius;
             self.velocity.y = -self.velocity.y.abs();
+            ev.bounced = true;
+            ev.y = true;
         }
+
+        ev
     }
 
     pub fn color_at(&self, t_norm: f32) -> Color {

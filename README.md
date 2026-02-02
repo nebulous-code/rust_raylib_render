@@ -10,6 +10,14 @@ cargo run --example m0_hello_timeline
 
 This opens a window and renders a short 8-second timeline with shapes and an image. The example uses `assets/logo.png`.
 
+## M1 Animation Example
+
+```bash
+cargo run --example m1_animation
+```
+
+This demonstrates keyframed motion, easing, rotation, and opacity.
+
 ## Coordinate System (Graph Coords)
 
 All public APIs use center-origin graph coordinates:
@@ -37,6 +45,7 @@ src/
   backend/
 examples/
   m0_hello_timeline.rs
+  m1_animation.rs
 assets/
   logo.png
 ```

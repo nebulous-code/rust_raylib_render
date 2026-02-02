@@ -1,3 +1,5 @@
+use crate::scene::animation::Track;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec2 {
     pub x: f32,
@@ -62,5 +64,39 @@ impl Default for Transform {
             rotation: 0.0,
             opacity: 1.0,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AnimatedTransform {
+    pub position: Track<Vec2>,
+    pub scale: Track<Vec2>,
+    pub rotation: Track<f32>,
+    pub opacity: Track<f32>,
+}
+
+impl AnimatedTransform {
+    pub fn constant(transform: Transform) -> Self {
+        Self {
+            position: Track::from_constant(transform.pos),
+            scale: Track::from_constant(transform.scale),
+            rotation: Track::from_constant(transform.rotation),
+            opacity: Track::from_constant(transform.opacity),
+        }
+    }
+
+    pub fn sample(&self, t: f32) -> Transform {
+        Transform {
+            pos: self.position.sample(t),
+            scale: self.scale.sample(t),
+            rotation: self.rotation.sample(t),
+            opacity: self.opacity.sample(t),
+        }
+    }
+}
+
+impl Default for AnimatedTransform {
+    fn default() -> Self {
+        Self::constant(Transform::default())
     }
 }

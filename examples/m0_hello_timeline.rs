@@ -1,7 +1,8 @@
 use anyhow::Result;
 
 use raylib_playground::{
-    Clip, Color, ImageObject, Layer, Object, RaylibPreview, Shape, Timeline, Transform, Vec2,
+    AnimatedTransform, Clip, Color, ImageObject, Layer, Object, RaylibPreview, Shape, Timeline,
+    Transform, Vec2,
 };
 
 fn main() -> Result<()> {
@@ -20,7 +21,7 @@ fn main() -> Result<()> {
             //color: Color::rgb(128, 5, 128),
             color: Color::rgba(128, 4, 128, 255),
         }),
-        Transform::default(),
+        AnimatedTransform::constant(Transform::default()),
         timeline.duration,
     )?);
 
@@ -33,11 +34,11 @@ fn main() -> Result<()> {
             radius: 80.0,
             color: Color::rgba_css(235, 101, 80, 0.7),
         }),
-        Transform {
+        AnimatedTransform::constant(Transform {
             // Graph coords: (0,0) is center; +Y is up.
             pos: Vec2 { x: -140.0, y: 60.0 },
             ..Transform::default()
-        },
+        }),
         timeline.duration,
     )?);
     mid.add_clip(Clip::new(
@@ -48,11 +49,11 @@ fn main() -> Result<()> {
             height: 120.0,
             color: Color::rgb(70, 140, 220),
         }),
-        Transform {
+        AnimatedTransform::constant(Transform {
             pos: Vec2 { x: 160.0, y: -40.0 },
             rotation: 12.0,
             ..Transform::default()
-        },
+        }),
         timeline.duration,
     )?);
 
@@ -62,11 +63,11 @@ fn main() -> Result<()> {
         3.0,
         8.0,
         Object::Image(ImageObject::new("assets/logo.png")),
-        Transform {
+        AnimatedTransform::constant(Transform {
             pos: Vec2 { x: 0.0, y: 0.0 },
             scale: Vec2 { x: 2.0, y: 2.0 },
             ..Transform::default()
-        },
+        }),
         timeline.duration,
     )?);
 

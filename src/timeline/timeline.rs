@@ -62,9 +62,10 @@ impl Timeline {
             let mut clips = Vec::new();
             for clip in &layer.clips {
                 if clip.is_active(t) {
+                    let local_t = clip.clamped_local_time(t);
                     clips.push(SampledClip {
                         object: clip.object.clone(),
-                        transform: clip.transform,
+                        transform: clip.transform.sample(local_t),
                     });
                 }
             }

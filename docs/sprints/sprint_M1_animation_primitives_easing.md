@@ -105,6 +105,8 @@ Outside the keyframe range:
 ---
 
 ## Deliverables
+
+  - Note: Demo code should include clear, beginner-friendly comments explaining what each section does.
 - A new example: `examples/m1_animation.rs` demonstrating:
   - keyframed motion
   - two easing functions

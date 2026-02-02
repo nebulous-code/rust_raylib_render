@@ -79,6 +79,7 @@ Add text rendering with a markdown subset and credits-roll capability:
 
 ### Credits roll example
 - [ ] Add `examples/m6_credits_roll.rs`:
+  - Note: Demo code should include clear, beginner-friendly comments explaining what each section does.
   - [ ] load `credits.md`
   - [ ] parse styled runs
   - [ ] layout into lines within a bounding width

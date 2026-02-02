@@ -80,6 +80,7 @@ Add **render mode** that outputs **video-only MP4** via ffmpeg:
   - [ ] define intermediate paths (e.g., `video_only.mp4` in a temp dir)
   - [ ] `--keep-temp` retains them; default removes them on success
 - [ ] Add `examples/m3_render_video.rs` (or equivalent render entry point):
+  - Note: Demo code should include clear, beginner-friendly comments explaining what each section does.
   - [ ] renders a short scene to mp4 using render mode
 
 ---

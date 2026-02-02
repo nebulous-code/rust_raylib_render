@@ -4,14 +4,16 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 
 use raylib_playground::{
-    AnimatedTransform, Clip, Color, FfmpegVideoEncoder, Layer, Object, RaylibRender, Shape,
-    Timeline, Transform, Vec2,
+    AnimatedTransform, Clip, Color, Easing, FfmpegVideoEncoder, Keyframe, Layer, Object,
+    RaylibRender, Shape, Timeline, Track, Transform, Vec2,
 };
 
 fn main() -> Result<()> {
-    let mut timeline = Timeline::new(6.0, 30)?;
+    // 25-second timeline at 30 FPS for a longer render demo.
+    let mut timeline = Timeline::new(25.0, 30)?;
     let args = RenderArgs::from_env(timeline.duration)?;
 
+    // Background layer: full-frame rectangle so the render has a clear backdrop.
     let mut background = Layer::new("background");
     background.add_clip(Clip::new(
         0.0,
@@ -25,25 +27,63 @@ fn main() -> Result<()> {
         timeline.duration,
     )?);
 
+    // Motion layer: a bouncing ball whose color cycles over time.
     let mut motion = Layer::new("motion");
-    motion.add_clip(Clip::new(
-        0.0,
-        6.0,
-        Object::Shape(Shape::Circle {
-            radius: 70.0,
-            color: Color::rgb(235, 90, 90),
-        }),
-        AnimatedTransform::constant(Transform {
-            pos: Vec2 { x: 0.0, y: 0.0 },
-            ..Transform::default()
-        }),
-        timeline.duration,
-    )?);
+    let radius = 60.0;
+    let bounds = Bounds::new(800.0, 600.0, radius);
+    let mut pos = Vec2 { x: -200.0, y: 80.0 };
+    let mut vel = Vec2 { x: 220.0, y: 170.0 };
+
+    // Color cycle hits red → yellow → green → cyan → blue → magenta.
+    let colors = [
+        Color::rgb(255, 0, 0),     // red
+        Color::rgb(255, 255, 0),   // yellow
+        Color::rgb(0, 255, 0),     // green
+        Color::rgb(0, 255, 255),   // cyan
+        Color::rgb(0, 0, 255),     // blue
+        Color::rgb(255, 0, 255),   // magenta
+    ];
+
+    // Split the 25 seconds evenly across the color segments.
+    let segment = timeline.duration / colors.len() as f32;
+    for (i, color) in colors.iter().enumerate() {
+        let start = i as f32 * segment;
+        let end = if i == colors.len() - 1 {
+            timeline.duration
+        } else {
+            (i + 1) as f32 * segment
+        };
+
+        // Precompute the bouncing path for this segment at fixed dt = 1/fps.
+        let (track, next_pos, next_vel) =
+            build_bounce_track(start, end, timeline.fps, pos, vel, bounds)?;
+        pos = next_pos;
+        vel = next_vel;
+
+        // Each segment is its own clip, using the precomputed position track.
+        motion.add_clip(Clip::new(
+            start,
+            end,
+            Object::Shape(Shape::Circle {
+                radius,
+                color: *color,
+            }),
+            AnimatedTransform {
+                position: track,
+                scale: Track::from_constant(Vec2 { x: 1.0, y: 1.0 }),
+                rotation: Track::from_constant(0.0),
+                opacity: Track::from_constant(1.0),
+            },
+            timeline.duration,
+        )?);
+    }
 
     timeline.add_layer(background);
     timeline.add_layer(motion);
 
+    // Render to MP4 via ffmpeg (video only for M3).
     let output_path = args.resolve_output("m3_render_video")?;
+    std::fs::create_dir_all(output_path.parent().unwrap_or(Path::new(".")))?;
     let temp_path = if args.keep_temp {
         temp_output_path(&output_path)
     } else {
@@ -66,6 +106,71 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct Bounds {
+    min_x: f32,
+    max_x: f32,
+    min_y: f32,
+    max_y: f32,
+}
+
+impl Bounds {
+    fn new(width: f32, height: f32, radius: f32) -> Self {
+        let half_w = width / 2.0;
+        let half_h = height / 2.0;
+        // Clamp motion so the ball stays fully inside the frame.
+        Self {
+            min_x: -half_w + radius,
+            max_x: half_w - radius,
+            min_y: -half_h + radius,
+            max_y: half_h - radius,
+        }
+    }
+}
+
+fn build_bounce_track(
+    start: f32,
+    end: f32,
+    fps: u32,
+    mut pos: Vec2,
+    mut vel: Vec2,
+    bounds: Bounds,
+) -> Result<(Track<Vec2>, Vec2, Vec2)> {
+    // Fixed-dt simulation so the render is deterministic.
+    let dt = 1.0 / fps as f32;
+    let frames = ((end - start) * fps as f32).floor() as u32;
+    let mut keys = Vec::with_capacity(frames as usize + 1);
+
+    keys.push(Keyframe::new(0.0, pos, Easing::Linear));
+
+    for i in 1..=frames {
+        // Advance position and bounce against the frame edges.
+        pos.x += vel.x * dt;
+        pos.y += vel.y * dt;
+
+        if pos.x <= bounds.min_x {
+            pos.x = bounds.min_x;
+            vel.x = vel.x.abs();
+        } else if pos.x >= bounds.max_x {
+            pos.x = bounds.max_x;
+            vel.x = -vel.x.abs();
+        }
+
+        if pos.y <= bounds.min_y {
+            pos.y = bounds.min_y;
+            vel.y = vel.y.abs();
+        } else if pos.y >= bounds.max_y {
+            pos.y = bounds.max_y;
+            vel.y = -vel.y.abs();
+        }
+
+        let t = i as f32 * dt;
+        keys.push(Keyframe::new(t, pos, Easing::Linear));
+    }
+
+    Ok((Track::new(keys)?, pos, vel))
 }
 
 struct RenderArgs {
@@ -126,7 +231,7 @@ impl RenderArgs {
             return Ok(path.clone());
         }
 
-        Ok(PathBuf::from(format!("{default_stem}.mp4")))
+        Ok(PathBuf::from(format!("output/{default_stem}.mp4")))
     }
 }
 

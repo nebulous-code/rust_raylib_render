@@ -64,6 +64,7 @@ This establishes the “interactive iteration loop.”
   - [x] trigger sfx via a deterministic test event:
     - [x] e.g. play once when integer seconds tick over
 - [x] Add `examples/m2_preview_audio.rs`:
+  - Note: Demo code should include clear, beginner-friendly comments explaining what each section does.
   - [x] shows visuals
   - [x] plays background music
   - [x] plays bounce sfx on schedule

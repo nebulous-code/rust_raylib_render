@@ -92,6 +92,8 @@ Implementation is ffmpeg-driven.
 ---
 
 ## Deliverables
+
+  - Note: Demo code should include clear, beginner-friendly comments explaining what each section does.
 - A render that stitches multiple mp4 clips into one coherent sequence matching project resolution/fps.
 - Overlaps are handled without error using the “newest stomps” rule.
 

@@ -124,6 +124,7 @@ Raylib uses top-left origin with +Y downward. The backend must convert:
   - [x] `t` advances by dt (based on fps or actual elapsed time)
   - [x] render all active clips each frame
 - [x] Add `examples/m0_hello_timeline.rs`
+  - Note: Demo code should include clear, beginner-friendly comments explaining what each section does.
   - [x] a circle and a logo image appear at different times/layers
   - [x] include at least one overlap moment to visually confirm layer ordering
 - [x] Add minimal README snippet describing M0 example + graph coord convention
@@ -152,5 +153,3 @@ Raylib uses top-left origin with +Y downward. The backend must convert:
 ## Risks / Notes
 - Opacity compositing may require a render target or per-draw alpha support; if hard, allow opacity=1 only for M0 and keep the field for later.
 - Image anchors aren’t required in M0, but image placement should be center-origin consistent.
-
----

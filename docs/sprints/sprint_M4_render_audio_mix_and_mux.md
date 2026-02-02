@@ -121,6 +121,8 @@ This is the key sprint that makes the output shareable.
 ---
 
 ## Deliverables
+
+  - Note: Demo code should include clear, beginner-friendly comments explaining what each section does.
 - `output.mp4` that includes:
   - background music throughout
   - bounce SFX aligned to collisions

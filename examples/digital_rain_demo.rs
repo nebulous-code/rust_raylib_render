@@ -10,6 +10,26 @@ use script_2_script::{
     RaylibRender, Shape, Timeline, Transform, Vec2,
 };
 
+// CLI options:
+// --render              Render to MP4 (default is preview window).
+// --output <path>       Override output path (no timestamp suffix).
+// --duration <seconds>  Total simulation length (default 20.0).
+// --start_time <sec>    Start time for preview/render (>= 0).
+// --end_time <sec>      End time for preview/render (<= duration).
+// --step <seconds>      Simulation step interval (default 0.1).
+// --spawn <count>       Drops spawned per step (ignored if --spawn_rate is set).
+// --spawn_rate <rate>   Drops spawned per second (overrides --spawn).
+// --dim <0..1>          Fixed trail dim factor per step (overrides dim range).
+// --dim_min <0..1>      Lower bound for random dim per step.
+// --dim_max <0..1>      Upper bound for random dim per step.
+// --fall <0..1>         Fixed fall factor per drop (overrides fall range).
+// --fall_min <0..1>     Lower bound for random fall per drop.
+// --fall_max <0..1>     Upper bound for random fall per drop.
+// --r <0..1>            Red scale applied to random colors.
+// --g <0..1>            Green scale applied to random colors.
+// --b <0..1>            Blue scale applied to random colors.
+// --seed <u64>          RNG seed for reproducible runs.
+// --print_seed          Print the seed even in preview mode.
 fn main() -> Result<()> {
     // TikTok-friendly vertical canvas.
     let width = 540;
@@ -23,15 +43,18 @@ fn main() -> Result<()> {
     let cell_size = width as f32 / cols as f32;
     let cell_draw_size = cell_size - 1.0;
 
+    // CLI args can override timing + render params.
     let args = RenderArgs::from_env(duration)?;
     let duration = args.duration;
     let mut timeline = Timeline::new(duration, fps)?;
 
+    // Number of simulation steps (each step renders a static slice).
     let steps = (duration / args.step_interval).ceil() as usize;
     let mut grid = vec![Cell::default(); cols * rows];
-    println!("seed: {}", args.seed);
     let mut rng = SimpleRng::new(args.seed);
-    let mut spawn_accumulator = 0.0f32;
+    if args.render || args.print_seed {
+        println!("seed: {}", args.seed);
+    }
 
     // Background layer fills the frame with a dark tone.
     let mut background = Layer::new("background");
@@ -56,10 +79,15 @@ fn main() -> Result<()> {
 
         // Spawn new drops at random positions each step.
         let spawn_count = if let Some(rate) = args.spawn_rate {
-            spawn_accumulator += rate.max(0.0) * args.step_interval;
-            let count = spawn_accumulator.floor() as usize;
-            spawn_accumulator -= count as f32;
-            count
+            // Stochastic rounding keeps the average spawn rate stable per second.
+            let expected = rate.max(0.0) * args.step_interval;
+            let base = expected.floor() as usize;
+            let frac = expected - base as f32;
+            if rng.next_f32() < frac {
+                base + 1
+            } else {
+                base
+            }
         } else {
             args.spawn_per_step
         };
@@ -130,6 +158,7 @@ fn main() -> Result<()> {
     }
 }
 
+// A single cell in the grid. Each lit cell carries its color, brightness, and fall rate.
 #[derive(Clone, Copy)]
 struct Cell {
     r: u8,
@@ -153,6 +182,7 @@ impl Default for Cell {
 
 impl Cell {
     fn to_color(&self) -> Color {
+        // Convert brightness-scaled RGB to a packed Color.
         let scale = self.brightness.clamp(0.0, 1.0);
         let r = (self.r as f32 * scale).round().clamp(0.0, 255.0) as u8;
         let g = (self.g as f32 * scale).round().clamp(0.0, 255.0) as u8;
@@ -172,17 +202,19 @@ fn spawn_drops(
     blue_scale: f32,
     args: &RenderArgs,
 ) {
+    // Pick random grid locations and create bright drops with per-drop fall rate.
     for _ in 0..count {
         let col = rng.next_usize(cols);
         let row = rng.next_usize(rows);
         let idx = row * cols + col;
         let color = random_color(rng, red_scale, green_scale, blue_scale);
         let fall_rate = args.resolve_fall(rng);
-        apply_cell(grid, idx, color, 1.0, fall_rate);
+        apply_cell(grid, idx, color, 1.0, fall_rate, true);
     }
 }
 
 fn random_color(rng: &mut SimpleRng, red_scale: f32, green_scale: f32, blue_scale: f32) -> (u8, u8, u8) {
+    // Per-channel scalars shift the palette (e.g., red-only).
     let r = scale_channel(rng.next_u8(), red_scale);
     let g = scale_channel(rng.next_u8(), green_scale);
     let b = scale_channel(rng.next_u8(), blue_scale);
@@ -194,14 +226,24 @@ fn scale_channel(value: u8, scale: f32) -> u8 {
     scaled.round().clamp(0.0, 255.0) as u8
 }
 
-fn apply_cell(grid: &mut [Cell], idx: usize, color: (u8, u8, u8), brightness: f32, fall_rate: f32) {
+fn apply_cell(
+    grid: &mut [Cell],
+    idx: usize,
+    color: (u8, u8, u8),
+    brightness: f32,
+    fall_rate: f32,
+    update_fall: bool,
+) {
+    // Only overwrite if brighter; trails keep fall_rate unless explicitly updated.
     let cell = &mut grid[idx];
     if brightness >= cell.brightness {
         cell.r = color.0;
         cell.g = color.1;
         cell.b = color.2;
         cell.brightness = brightness;
-        cell.fall_rate = fall_rate;
+        if update_fall {
+            cell.fall_rate = fall_rate;
+        }
     } else {
         cell.brightness = cell.brightness.max(brightness);
     }
@@ -230,6 +272,7 @@ fn step_rain(current: &[Cell], cols: usize, rows: usize, dim: f32) -> Vec<Cell> 
                     (cell.r, cell.g, cell.b),
                     fallen,
                     cell.fall_rate,
+                    true,
                 );
             }
 
@@ -245,6 +288,7 @@ fn step_rain(current: &[Cell], cols: usize, rows: usize, dim: f32) -> Vec<Cell> 
                 (cell.r, cell.g, cell.b),
                 dimmed,
                 cell.fall_rate,
+                false,
             );
         }
     }
@@ -269,6 +313,7 @@ struct SimpleRng {
 
 impl SimpleRng {
     fn new(seed: u64) -> Self {
+        // Seed 0 is reserved; map it to a non-zero default.
         let seed = if seed == 0 { 0x1234_5678_9ABC_DEF0 } else { seed };
         Self { state: seed }
     }
@@ -314,6 +359,7 @@ struct RenderArgs {
     spawn_per_step: usize,
     spawn_rate: Option<f32>,
     seed: u64,
+    print_seed: bool,
     red_scale: f32,
     green_scale: f32,
     blue_scale: f32,
@@ -338,6 +384,7 @@ impl RenderArgs {
         let mut spawn_per_step = 35;
         let mut spawn_rate = None;
         let mut seed = default_seed();
+        let mut print_seed = false;
         let mut red_scale = 1.0;
         let mut green_scale = 1.0;
         let mut blue_scale = 1.0;
@@ -373,37 +420,37 @@ impl RenderArgs {
                     let value = args
                         .next()
                         .ok_or_else(|| anyhow::anyhow!("--dim requires a value"))?;
-                    dim_fixed = Some(value.parse::<f32>()?);
+                    dim_fixed = Some(value.parse::<f32>()?.clamp(0.0, 1.0));
                 }
                 "--dim_min" => {
                     let value = args
                         .next()
                         .ok_or_else(|| anyhow::anyhow!("--dim_min requires a value"))?;
-                    dim_min = Some(value.parse::<f32>()?);
+                    dim_min = Some(value.parse::<f32>()?.clamp(0.0, 1.0));
                 }
                 "--dim_max" => {
                     let value = args
                         .next()
                         .ok_or_else(|| anyhow::anyhow!("--dim_max requires a value"))?;
-                    dim_max = Some(value.parse::<f32>()?);
+                    dim_max = Some(value.parse::<f32>()?.clamp(0.0, 1.0));
                 }
                 "--fall" => {
                     let value = args
                         .next()
                         .ok_or_else(|| anyhow::anyhow!("--fall requires a value"))?;
-                    fall_fixed = Some(value.parse::<f32>()?);
+                    fall_fixed = Some(value.parse::<f32>()?.clamp(0.0, 1.0));
                 }
                 "--fall_min" => {
                     let value = args
                         .next()
                         .ok_or_else(|| anyhow::anyhow!("--fall_min requires a value"))?;
-                    fall_min = Some(value.parse::<f32>()?);
+                    fall_min = Some(value.parse::<f32>()?.clamp(0.0, 1.0));
                 }
                 "--fall_max" => {
                     let value = args
                         .next()
                         .ok_or_else(|| anyhow::anyhow!("--fall_max requires a value"))?;
-                    fall_max = Some(value.parse::<f32>()?);
+                    fall_max = Some(value.parse::<f32>()?.clamp(0.0, 1.0));
                 }
                 "--step" => {
                     let value = args
@@ -428,6 +475,9 @@ impl RenderArgs {
                         .next()
                         .ok_or_else(|| anyhow::anyhow!("--seed requires a value"))?;
                     seed = value.parse::<u64>()?;
+                }
+                "--print_seed" => {
+                    print_seed = true;
                 }
                 "--r" => {
                     let value = args
@@ -482,6 +532,7 @@ impl RenderArgs {
             spawn_per_step,
             spawn_rate,
             seed,
+            print_seed,
             red_scale,
             green_scale,
             blue_scale,

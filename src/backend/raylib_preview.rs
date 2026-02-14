@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use anyhow::{bail, Result};
+use raylib::consts::TraceLogLevel;
 use raylib::prelude::*;
 
 use crate::backend::resources::ResourceCache;
@@ -12,11 +13,26 @@ pub struct RaylibPreview {
     width: u32,
     height: u32,
     bg: Color,
+    log_level: TraceLogLevel,
 }
 
 impl RaylibPreview {
     pub fn new(width: u32, height: u32, bg: Color) -> Self {
-        Self { width, height, bg }
+        Self::new_with_log_level(width, height, bg, TraceLogLevel::LOG_ERROR)
+    }
+
+    pub fn new_with_log_level(
+        width: u32,
+        height: u32,
+        bg: Color,
+        log_level: TraceLogLevel,
+    ) -> Self {
+        Self {
+            width,
+            height,
+            bg,
+            log_level,
+        }
     }
 
     pub fn run(&self, timeline: &Timeline) -> Result<()> {
@@ -43,6 +59,7 @@ impl RaylibPreview {
 
         let (mut rl, thread) = raylib::init()
             .size(self.width as i32, self.height as i32)
+            .log_level(self.log_level)
             .title("Rust Render Preview")
             .build();
 
